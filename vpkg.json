@@ -1,7 +1,0 @@
-{
-    "dependencies": [
-      "curl",
-      "nlohlmann-json"
-    ]
-}
-  

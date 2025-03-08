@@ -1,0 +1,247 @@
+#!/usr/bin/env python
+"""
+Simple LLM command line client.
+"""
+import dataclasses
+import json
+import os
+import requests
+import sys
+from typing import Sequence, Dict, Literal
+
+
+HISTORY_FILE = os.path.expanduser('~/.chat-history')
+
+USER_ROLE = 'user'
+SYSTEM_ROLE = 'system'
+ASSISTANT_ROLE = 'assistant'
+
+_MAX_HISTORY_LENGTH = 10
+_EXPLAIN_PROMPT = 'You are bash command line assistant'
+_SYSTEM_PROMPT = f'{_EXPLAIN_PROMPT}. Respond with bash commands quoted with ```bash ...```'
+_MAX_INPUT_TOKENS = 2048
+_DEFAULT_URL = 'http://localhost:8080'
+
+
+def _bold(text: str) -> str:
+    """
+    Make text bold
+    """
+    return f'\033[1m{text}\033[0m'
+
+
+
+@dataclasses.dataclass(slots=True)
+class Message:
+    """
+    Message dataclass
+    """
+    role: str = 'user'
+    content: str = ''
+
+    def to_dict(self) -> dict:
+        """
+        Convert to dictionary
+        """
+        return {'role': self.role, 'content': self.content}
+
+    @staticmethod
+    def from_dict(data: Dict) -> 'Message':
+        """
+        Create a message from a dictionary
+        """
+        return Message(role=data['role'], content=data['content'])
+
+
+@dataclasses.dataclass
+class Response:
+    """
+    Chat response
+    """
+    content: str = ''
+
+
+class Client:
+    """
+    LLM engine client
+    """
+    def __init__(self, url: str):
+        self._session = requests.Session()
+        self._url = url
+
+    def chat(self, messages: Sequence[Message]) -> Response:
+        """
+        Chat with the LLM engine
+        """
+        response = self._session.post(f'{self._url}/v1/chat/completions', json={
+            'messages': [m.to_dict() for m in messages],
+            'temperature': 0.1
+        })
+        response.raise_for_status()
+        return Response(content=response.json()['choices'][0]['message']['content'])
+
+
+@dataclasses.dataclass
+class Block:
+    """
+    Block with code/text from parsed response
+    """
+    TYPE_CODE = 'code'
+    TYPE_TEXT = 'text'
+
+    type: str     # one of TYPE_CODE or TYPE_TEXT
+    content: str  # block content
+
+
+class Session:
+    """
+    Session management
+    """
+    def __init__(self, url: str = _DEFAULT_URL):
+        self._client = Client(url)
+        self._history = self._load_history()
+
+    def chat(self, prompt: str):
+        """
+        Chat with the LLM engine
+        """
+        messages = [
+            Message(role=SYSTEM_ROLE, content=_SYSTEM_PROMPT),
+            *self._history,
+            Message(role=USER_ROLE, content=prompt)
+        ]
+        response = self._client.chat(messages)
+
+        self._history += [
+            Message(role=USER_ROLE, content=prompt),
+            Message(role=ASSISTANT_ROLE, content=response.content)
+        ]
+        self._save_history(self._history[-_MAX_HISTORY_LENGTH:])
+
+        self._handle_response(response)
+
+    def explain(self, code: str) -> str:
+        """
+        Explain specified code
+        """
+        messages = [
+            Message(role=SYSTEM_ROLE, content=_EXPLAIN_PROMPT),
+            *self._history,
+            Message(role=USER_ROLE, content=f'Explain these commands:\n```bash\n{code}\n```')
+        ]
+        response = self._client.chat(messages)
+        return response.content
+
+    def _handle_response(self, response: Response):
+        """
+        Handle response
+        """
+        blocks = self._parse_blocks(response.content)
+
+        for block in blocks:
+            if block.type == Block.TYPE_TEXT:
+                print(block.content)
+            elif block.type == Block.TYPE_CODE:
+                self._execute_code(block.content)
+
+    def _execute_code(self, code: str):
+        """
+        Execute code block
+        """
+        print(_bold('Assistant:'))
+        print(code)
+
+        while True:
+            print(_bold('Execute? [y/n/e=explain]'), end=' ')
+            sys.stdout.flush()
+
+            try:
+                user_input = input().lower()
+            except KeyboardInterrupt:
+                sys.exit(0)
+
+            if user_input == 'e':
+                self.explain(code)
+                continue
+
+            if user_input == 'y':
+                status = os.system(code)
+                print(_bold('Success') if status == 0 else _bold('Failed'))
+
+            break
+
+    @staticmethod
+    def _parse_blocks(content: str) -> Sequence[Block]:
+        """
+        Parse response content into blocks
+        """
+        blocks = []
+
+        start_index = 0
+        while start_index < len(content):
+            next_index = content.find('```bash', start_index)
+            if next_index == -1:
+                blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:]))
+                break
+
+            if next_index > start_index:
+                blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:next_index]))
+
+            next_end = content.find('```', next_index + 7)
+            if next_end == -1:
+                blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:]))
+                break
+            else:
+                blocks.append(Block(type=Block.TYPE_CODE, content=content[next_index + 7:next_end].strip()))
+                start_index = next_end + 3
+
+        return blocks
+
+    @staticmethod
+    def reset_history():
+        """
+        Reset chat history
+        """
+        with open(HISTORY_FILE, 'w') as file:
+            file.write('[]')
+
+    @staticmethod
+    def _load_history() -> Sequence[Message]:
+        """
+        Load chat history from ~/.chat-history JSON file
+        """
+        if not os.path.exists(HISTORY_FILE):
+            return []
+
+        with open(HISTORY_FILE, 'r') as file:
+            return [Message.from_dict(item) for item in json.load(file)]
+
+    @staticmethod
+    def _save_history(history: Sequence[Message]):
+        """
+        Save history to the user's home directory
+        """
+        with open(HISTORY_FILE, 'w') as file:
+            json.dump([item.to_dict() for item in history], file)
+
+
+def main(argv):
+    """
+    Main entry point
+    """
+    if len(argv) == 0 or argv[0] in ('-h', '--help'):
+        print('Usage: chat.py <prompt>')
+        return 0
+
+    session = Session()
+
+    if len(argv) == 1 and argv[0] == 'reset':
+        session.reset_history()
+        return
+
+    prompt = ' '.join(argv)
+    session.chat(prompt)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

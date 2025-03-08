@@ -1,0 +1,9 @@
+[project]
+name = "cli-agent"
+version = "0.1.0"
+dependencies = [
+    "requests"
+]
+
+[tool.poetry.scripts]
+chat = "chat:main"

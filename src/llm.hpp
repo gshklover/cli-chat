@@ -4,9 +4,10 @@
 ///
 #include <string>
 #include <vector>
+#include <cpr/cpr>
 
 
-namespace llm_client {
+namespace llm {
     
     ///
     /// @brief Message roles (system/user/assistant)
@@ -16,6 +17,14 @@ namespace llm_client {
         USER,
         ASSISTANT,
     };
+
+    // convert Role to string
+    // inline std::string operator()(Role role) {
+    //     if (role == Role::SYSTEM) return "system";
+    //     if (role == Role::USER) return "user";
+    //     if (role == Role::ASSISTANT) return "assistant";
+    //     return "unknown";
+    // };
 
     ///
     /// @brief Messages exchanged with the LLM engine
@@ -35,7 +44,9 @@ namespace llm_client {
     /// @brief Simple OpenAI-compatible LLM client
     class Client {
     public:
-        Client(const std::string& url) : m_url(url) {}
+        Client(const std::string& url) : m_url(url), m_curl()
+
+        }
 
         Response chat(const std::vector<Message>& messages) {
 
