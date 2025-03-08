@@ -7,16 +7,15 @@ Command line assistant for **bash** command execution using generative AI servic
 Example
 -------
 
-```bash
-[user@host]$ ./chat find top 3 files in /tmp by size
-**Assistant:**
-find /tmp -type f -exec stat -c "%n" {} + | sort -rn | head -3
-**Execute? [y/n/e=explain]** y
-/tmp/tmp1.bin
-/tmp/tmp2.bin
-/tmp/tmp3.bin
-Success
-```
+>**[user@host]$** ./chat find top 3 files in /tmp by size<br>
+**Assistant:**<br>
+find /tmp -type f -exec stat -c "%n" {} + | sort -rn | head -3<br>
+**Execute? [y/n/e=explain]** y<br>
+/tmp/tmp1.bin<br>
+/tmp/tmp2.bin<br>
+/tmp/tmp3.bin<br>
+**Success**<br>
+
 
 Setup
 =====
