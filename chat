@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env -S python -u
 """
 Simple LLM command line client.
 """
@@ -29,6 +29,18 @@ def _bold(text: str) -> str:
     """
     return f'\033[1m{text}\033[0m'
 
+
+def _print_rst(text: str):
+    """
+    Print RST-formatted text
+    """
+    for line in text.splitlines():
+        if '**' in line:
+            for i, part in enumerate(line.split('**')):
+                print(part if i % 2 == 0 else _bold(part), end='')
+            print('')
+        else:
+            print(line)
 
 
 @dataclasses.dataclass(slots=True)
@@ -126,7 +138,7 @@ class Session:
         """
         messages = [
             Message(role=SYSTEM_ROLE, content=_EXPLAIN_PROMPT),
-            *self._history,
+            *self._history[-4:],
             Message(role=USER_ROLE, content=f'Explain these commands:\n```bash\n{code}\n```')
         ]
         response = self._client.chat(messages)
@@ -160,8 +172,13 @@ class Session:
             except KeyboardInterrupt:
                 sys.exit(0)
 
+            if user_input not in ('y', 'n', 'e'):
+                continue
+
             if user_input == 'e':
-                self.explain(code)
+                text = self.explain(code)
+                print(_bold('Explanation:'))
+                _print_rst(text)
                 continue
 
             if user_input == 'y':
