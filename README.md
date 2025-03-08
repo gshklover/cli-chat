@@ -3,13 +3,13 @@ Overview
 
 Command line assistant for **bash** command execution using generative AI service running remotely / locally such as *llama.cpp* server.
 
-Implemented as is a single, self-contained Python script with no external dependencies except for *requests* library.
+Implemented as is a single, self-contained Python script *qq* (**q**uick **q**uestion) with no external dependencies except for *requests* library.
 
 Example
 -------
 
 <pre>
-<b>[user@host]$</b> ./chat find top 3 files in /tmp by size
+<b>[user@host]$</b> ./qq find top 3 files in /tmp by size
 <b>Assistant:</b>
 <i>find /tmp -type f -exec stat -c "%n" {} + | sort -rn | head -3</i>
 <b>Execute? [y/n/e=explain]</b> y

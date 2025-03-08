@@ -16,9 +16,10 @@ USER_ROLE = 'user'
 SYSTEM_ROLE = 'system'
 ASSISTANT_ROLE = 'assistant'
 
-_MAX_HISTORY_LENGTH = 10
-_EXPLAIN_PROMPT = 'You are bash command line assistant'
-_SYSTEM_PROMPT = f'{_EXPLAIN_PROMPT}. Respond with bash commands quoted with ```bash ...```'
+_SHELL = 'bash'           # default command shell
+_MAX_HISTORY_LENGTH = 10  # max number of history items
+_EXPLAIN_PROMPT = f'You are {_SHELL} command line assistant'
+_SYSTEM_PROMPT = f'{_EXPLAIN_PROMPT}. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```'
 _MAX_INPUT_TOKENS = 2048
 
 # default LLM server URL:
@@ -144,7 +145,7 @@ class Session:
         messages = [
             Message(role=SYSTEM_ROLE, content=_EXPLAIN_PROMPT),
             *self._history[-4:],
-            Message(role=USER_ROLE, content=f'Explain these commands:\n```bash\n{code}\n```')
+            Message(role=USER_ROLE, content=f'Explain these commands:\n```{_SHELL}\n{code}\n```')
         ]
         response = self._client.chat(messages)
         return response.content
@@ -201,7 +202,7 @@ class Session:
 
         start_index = 0
         while start_index < len(content):
-            next_index = content.find('```bash', start_index)
+            next_index = content.find(f'```{_SHELL}', start_index)
             if next_index == -1:
                 blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:]))
                 break
@@ -209,7 +210,7 @@ class Session:
             if next_index > start_index:
                 blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:next_index]))
 
-            next_end = content.find('```', next_index + 7)
+            next_end = content.find('```', next_index + len(f'```{_SHELL}'))
             if next_end == -1:
                 blocks.append(Block(type=Block.TYPE_TEXT, content=content[start_index:]))
                 break
@@ -252,7 +253,7 @@ def main(argv):
     Main entry point
     """
     if len(argv) == 0 or argv[0] in ('-h', '--help'):
-        print('Usage: chat.py <prompt>')
+        print('Usage: qq <prompt>')
         return 0
 
     session = Session()
