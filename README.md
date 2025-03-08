@@ -1,29 +1,32 @@
 Overview
 ========
 
-Command line assistant for **bash** command execution using generative AI service.
+Command line assistant for **bash** command execution using generative AI service running remotely / locally such as *llama.cpp* server.
 
+Implemented as is a single, self-contained Python script with no external dependencies except for *requests* library.
 
 Example
 -------
 
->**[user@host]$** ./chat find top 3 files in /tmp by size<br>
-**Assistant:**<br>
-find /tmp -type f -exec stat -c "%n" {} + | sort -rn | head -3<br>
-**Execute? [y/n/e=explain]** y<br>
-/tmp/tmp1.bin<br>
-/tmp/tmp2.bin<br>
-/tmp/tmp3.bin<br>
-**Success**<br>
-
+<pre>
+<b>[user@host]$</b> ./chat find top 3 files in /tmp by size
+<b>Assistant:</b>
+<i>find /tmp -type f -exec stat -c "%n" {} + | sort -rn | head -3</i>
+<b>Execute? [y/n/e=explain]</b> y
+<i>/tmp/tmp1.bin</i>
+<i>/tmp/tmp2.bin</i>
+<i>/tmp/tmp3.bin</i>
+<b>Success</b>
+</pre>
 
 Setup
 =====
 
-1. Install and build [llama.cpp](https://github.com/ggml-org/llama.cpp)
-2. Download small language model such as *Llama-3.2-1B-Instruct-F16.gguf*
-3. Run local *llama.cpp* server: `./llama.cpp -m Llama-3.2-1B-Instruct-F16.gguf -p 8080`
-4. Now use *chat* to interact with the server
+* Clone and build [llama.cpp](https://github.com/ggml-org/llama.cpp)
+* Download small language model such as *Llama-3.2-1B-Instruct-F16.gguf*
+* Run local *llama.cpp* server: `./llama.cpp -m Llama-3.2-1B-Instruct-F16.gguf -p 8080`
+* Now use *chat* to interact with the server
+  * Optionally, use _CHAT_URL environment variable override the default (http://localhost:8080)
 
 
 Requirements

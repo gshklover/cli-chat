@@ -20,7 +20,12 @@ _MAX_HISTORY_LENGTH = 10
 _EXPLAIN_PROMPT = 'You are bash command line assistant'
 _SYSTEM_PROMPT = f'{_EXPLAIN_PROMPT}. Respond with bash commands quoted with ```bash ...```'
 _MAX_INPUT_TOKENS = 2048
-_DEFAULT_URL = 'http://localhost:8080'
+
+# default LLM server URL:
+_DEFAULT_URL = (
+    os.environ['_CHAT_URL'] if '_CHAT_URL' in os.environ
+    else 'http://localhost:8080'
+)
 
 
 def _bold(text: str) -> str:
