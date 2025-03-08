@@ -9,6 +9,7 @@ import requests
 import sys
 from typing import Sequence, Dict, Literal
 
+from gi.importer import repository
 
 HISTORY_FILE = os.path.expanduser('~/.chat-history')
 
@@ -18,8 +19,8 @@ ASSISTANT_ROLE = 'assistant'
 
 _SHELL = 'bash'           # default command shell
 _MAX_HISTORY_LENGTH = 10  # max number of history items
-_EXPLAIN_PROMPT = f'You are {_SHELL} command line assistant'
-_SYSTEM_PROMPT = f'{_EXPLAIN_PROMPT}. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```'
+_EXPLAIN_PROMPT = f'You are {_SHELL} command line assistant. Provide short explanations.'
+_SYSTEM_PROMPT = f'You are {_SHELL} command line assistant. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```'
 _MAX_INPUT_TOKENS = 2048
 
 # default LLM server URL:
@@ -27,6 +28,10 @@ _DEFAULT_URL = (
     os.environ['_CHAT_URL'] if '_CHAT_URL' in os.environ
     else 'http://localhost:8080'
 )
+
+# terminal colors:
+_BOLD_START = '\033[1m'
+_BOLD_STOP = '\033[0m'
 
 
 def _bold(text: str) -> str:
@@ -79,6 +84,15 @@ class Response:
     content: str = ''
 
 
+@dataclasses.dataclass
+class ServerEvent:
+    """
+    Server-side events
+    """
+    event: str
+    data: Dict
+
+
 class Client:
     """
     LLM engine client
@@ -86,6 +100,7 @@ class Client:
     def __init__(self, url: str):
         self._session = requests.Session()
         self._url = url
+        self._temperature = 0.1
 
     def chat(self, messages: Sequence[Message]) -> Response:
         """
@@ -93,7 +108,7 @@ class Client:
         """
         response = self._session.post(f'{self._url}/v1/chat/completions', json={
             'messages': [m.to_dict() for m in messages],
-            'temperature': 0.1
+            'temperature': self._temperature
         })
         response.raise_for_status()
         return Response(content=response.json()['choices'][0]['message']['content'])
@@ -101,9 +116,59 @@ class Client:
     def stream_chat(self, messages: Sequence[Message]):
         """
         Stream response from the LLM engine.
-        Returns a token generator.
+        Generator of responses chunks (str).
         """
-        pass
+        response = self._session.post(f'{self._url}/v1/chat/completions', json={
+            'messages': [m.to_dict() for m in messages],
+            'temperature': self._temperature,
+            'stream': True,
+        }, stream=True)
+        response.raise_for_status()
+
+        for event in self._parse_events(response):
+            delta = event.data['choices'][0]['delta']
+            if 'content' in delta:
+                yield delta['content']
+            else:
+                break  # the server seems to not stop otherwise
+
+    @staticmethod
+    def _parse_events(response: requests.Response):
+        """
+        Parse server sent events using into ServerEvent objects.
+        Events are separated by two newlines.
+        """
+        if response.headers.get('Content-Type', '') != 'text/event-stream':
+            raise ValueError('Expected text/event-stream content type')
+
+        event = None    # event type
+        data = ''       # accumulated data
+
+        for line in response.iter_lines():
+            line = line.decode('utf-8')
+
+            # handle separator lines:
+            if line == '':
+                if data:
+                    yield ServerEvent(event=event, data=json.loads(data))
+                event = None
+                data = ''
+                continue
+
+            if line.startswith('data:'):
+                data += line[5:] + '\n'
+            elif line.startswith('event:'):
+                if event is not None:
+                    yield ServerEvent(event=event, data=json.loads(data))
+                event = line[6:].strip()
+                data = ''
+            elif line.startswith('id:'):
+                pass
+            elif line.startswith('retry:'):
+                pass
+
+        if data:
+            yield ServerEvent(event=event, data=json.loads(data))
 
 
 @dataclasses.dataclass
@@ -145,7 +210,7 @@ class Session:
 
         self._handle_response(response)
 
-    def explain(self, code: str) -> str:
+    def explain(self, code: str):
         """
         Explain specified code
         """
@@ -154,8 +219,27 @@ class Session:
             *self._history[-4:],
             Message(role=USER_ROLE, content=f'Explain these commands:\n```{_SHELL}\n{code}\n```')
         ]
-        response = self._client.chat(messages)
-        return response.content
+
+        is_bold = False
+        tail = ''
+        for chunk in self._client.stream_chat(messages):
+            # handle single '*' at the end of the chunk:
+            chunk = tail + chunk
+            if len(chunk) > 2 and chunk[-1] == '*' and chunk[-2] != '*':
+                tail = '*'
+                chunk = chunk[:-1]
+
+            start_index = 0
+            while start_index < len(chunk):
+                next_index = chunk.find('**', start_index)
+                if next_index == -1:
+                    print(chunk[start_index:], end='')
+                    break
+
+                print(chunk[start_index:next_index], end='')
+                is_bold = not is_bold
+                print(_BOLD_START if is_bold else _BOLD_STOP, end='')
+                start_index = next_index + 2
 
     def _handle_response(self, response: Response):
         """
@@ -189,9 +273,9 @@ class Session:
                 continue
 
             if user_input == 'e':
-                text = self.explain(code)
                 print(_bold('Explanation:'))
-                _print_rst(text)
+                self.explain(code)
+                print('')
                 continue
 
             if user_input == 'y':

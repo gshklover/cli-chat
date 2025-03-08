@@ -6,4 +6,4 @@ dependencies = [
 ]
 
 [tool.poetry.scripts]
-chat = "chat:main"
+qq = "qq:main"
