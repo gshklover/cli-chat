@@ -2,9 +2,13 @@
 """
 Simple LLM command line client.
 """
+import contextlib
 import dataclasses
 import json
 import os
+import threading
+import time
+
 import requests
 import sys
 from typing import Sequence, Dict
@@ -41,6 +45,38 @@ def _bold(text: str) -> str:
     Make text bold
     """
     return f'\033[1m{text}\033[0m'
+
+
+class _SpinnerThread(threading.Thread):
+    """
+    Spinner rendering thread
+    """
+    stop: bool = False
+
+    def run(self):
+        index = 0
+        spinner = '|/-\\'
+        while not self.stop:
+            print(spinner[index], end='', flush=True)
+            sys.stdout.flush()
+            sys.stdout.write('\r')
+            index = (index + 1) % len(spinner)
+            time.sleep(0.1)
+
+
+@contextlib.contextmanager
+def _spinner():
+    """
+    Renders a spinner using separate thread
+    """
+    spinner = _SpinnerThread()
+    spinner.start()
+    try:
+        yield
+    finally:
+        spinner.stop = True
+        spinner.join()
+        print('\r', end='', flush=True)
 
 
 def _print_rst(text: str):
@@ -203,7 +239,9 @@ class Session:
             *self._history,
             Message(role=USER_ROLE, content=prompt)
         ]
-        response = self._client.chat(messages)
+
+        with _spinner():
+            response = self._client.chat(messages)
 
         self._history += [
             Message(role=USER_ROLE, content=prompt),
@@ -252,6 +290,7 @@ class Session:
 
         for block in blocks:
             if block.type == Block.TYPE_TEXT:
+                print(_bold('Assistant:'))
                 print(block.content)
             elif block.type == Block.TYPE_CODE:
                 self._execute_code(block.content)
