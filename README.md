@@ -25,7 +25,7 @@ Setup
 * Clone and build [llama.cpp](https://github.com/ggml-org/llama.cpp)
 * Download small language model such as *Phi-3-mini-4k-instruct-q4.gguf* or *Llama-3.2-1B-Instruct-F16.gguf* 
 * Run local *llama.cpp* server: `./llama.cpp -m Phi-3-mini-4k-instruct-q4.gguf -p 8080`
-* Now use *chat* to interact with the server
+* Now use *qq* to interact with the server
   * Optionally, use _CHAT_URL environment variable override the default (http://localhost:8080)
 
 

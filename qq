@@ -24,9 +24,13 @@ SYSTEM_ROLE = 'system'
 ASSISTANT_ROLE = 'assistant'
 
 _SHELL = 'bash'           # default command shell
+if 'SHELL' in os.environ:
+    _SHELL = os.environ['SHELL'].split('/')[-1]
+print(f'SHELL: {_SHELL}')
+
 _MAX_HISTORY_LENGTH = 10  # max number of history items
 _EXPLAIN_PROMPT = f'You are {_SHELL} command line assistant. Provide short explanations.'
-_SYSTEM_PROMPT = f'You are {_SHELL} command line assistant. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```'
+_SYSTEM_PROMPT = f'You are {_SHELL} command line assistant. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```, no explanations.'
 _MAX_INPUT_TOKENS = 2048
 
 # default LLM server URL:
