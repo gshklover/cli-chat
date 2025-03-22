@@ -29,7 +29,7 @@ if 'SHELL' in os.environ:
 
 _MAX_HISTORY_LENGTH = 10  # max number of history items
 _EXPLAIN_PROMPT = f'You are {_SHELL} command line assistant. Provide short explanations.'
-_SYSTEM_PROMPT = f'You are {_SHELL} command line assistant. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```, no explanations.'
+_SYSTEM_PROMPT = f'You are {_SHELL} command line assistant. Respond with {_SHELL} commands quoted with ```{_SHELL} ...```, without explanations.'
 _MAX_INPUT_TOKENS = 2048
 
 # default LLM server URL:
@@ -142,7 +142,7 @@ class Client:
         self._session = requests.Session()
         self._session.verify = False
         self._url = url
-        self._temperature = 0.1
+        self._temperature = 0.05
 
     def chat(self, messages: Sequence[Message]) -> Response:
         """
@@ -293,8 +293,8 @@ class Session:
 
         for block in blocks:
             if block.type == Block.TYPE_TEXT:
-                print(_bold('Assistant:'))
-                print(block.content)
+                if block.content.strip():
+                    print(block.content.strip())
             elif block.type == Block.TYPE_CODE:
                 self._execute_code(block.content)
 
